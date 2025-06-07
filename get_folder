@@ -16,6 +16,7 @@ PATH_TO_FOLDER=$3
 BRANCH=${4:-main}
 DESTINATION=${5:-.}
 
+echo "\$0: $0"
 echo "Owner: $OWNER"
 echo "Repository: $REPO"
 echo "Path to folder: $PATH_TO_FOLDER"
