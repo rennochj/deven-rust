@@ -14,6 +14,14 @@ download_folder() {
     local original_path="$6"
     local temp_dir="$7"
     
+    echo "Owner: $owner"
+    echo "Repository: $repo"
+    echo "Path to folder: $path"
+    echo "Branch: $branch"
+    echo "Destination: $destination"
+    echo "Original path: $original_path"
+    echo "Temporary directory: $temp_dir"
+
     # If this is the first call, setup original path
     if [ -z "$original_path" ]; then
         original_path="$path"
