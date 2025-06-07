@@ -56,6 +56,8 @@ while read -r url name; do
     curl -s "$url" -o "$DESTINATION/$name"
 done
 
+echo "Files downloaded successfully."
+
 # Handle directories recursively (requires additional calls)
 jq -r '.[] | select(.type=="dir") | .path' "$TEMP_DIR/folder_contents.json" | \
 while read -r subdir; do
@@ -67,6 +69,8 @@ while read -r subdir; do
     # Download contents of the subdirectory
     "$0" "$OWNER" "$REPO" "$subdir" "$BRANCH" "$DESTINATION/$rel_path"
 done
+
+echo "All files downloaded successfully to $DESTINATION"
 
 # Clean up
 rm -rf "$TEMP_DIR"
