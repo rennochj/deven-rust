@@ -1,80 +1,105 @@
 #!/bin/bash
-# filepath: /Users/rennochj/Code/deven/download_github_folder.sh
+# filepath: /Users/rennochj/Code/deven/get_folder
 
 # Script to download a specific folder from a GitHub repository using GitHub CLI
-# Usage: ./download_github_folder.sh owner repo path branch destination
+# Usage: ./get_folder owner repo path branch destination
 
-if [ "$#" -lt 3 ]; then
-    echo "Usage: $0 owner repo path branch [destination]"
-    echo "Example: $0 facebook react packages/react-dom main ./react-dom"
-    exit 1
-fi
-
-OWNER=$1
-REPO=$2
-PATH_TO_FOLDER=$3
-BRANCH=${4:-main}
-DESTINATION=${5:-.}
-
-echo "\$0: $0"
-echo "Owner: $OWNER"
-echo "Repository: $REPO"
-echo "Path to folder: $PATH_TO_FOLDER"
-echo "Branch: $BRANCH"
-echo "Destination: $DESTINATION"
-
-# Check if gh is installed
-if ! command -v gh &> /dev/null; then
-    echo "Error: GitHub CLI (gh) is not installed."
-    echo "Please install it using: brew install gh"
-    echo "Then authenticate using: gh auth login"
-    exit 1
-fi
-
-# Create temp directory
-TEMP_DIR=$(mktemp -d)
-
-echo "Downloading folder $PATH_TO_FOLDER from $OWNER/$REPO repository ($BRANCH branch)..."
-
-# Use gh api to download the folder contents and metadata
-mkdir -p "$TEMP_DIR/contents"
-gh api repos/$OWNER/$REPO/contents/$PATH_TO_FOLDER?ref=$BRANCH > "$TEMP_DIR/folder_contents.json"
-
-if [ $? -ne 0 ]; then
-    echo "Error: Failed to get contents of the folder. Make sure the repository, branch, and folder exist."
-    rm -rf "$TEMP_DIR"
-    exit 1
-fi
-
-# Create destination directory if it doesn't exist
-mkdir -p "$DESTINATION"
-
-# Download each file in the folder
-echo "Downloading files..."
-jq -r '.[] | select(.type=="file") | [.download_url, .name] | @tsv' "$TEMP_DIR/folder_contents.json" | \
-while read -r url name; do
-    echo "Downloading $name..."
-    curl -s "$url" -o "$DESTINATION/$name"
-done
-
-echo "Files downloaded successfully."
-
-# Handle directories recursively (requires additional calls)
-jq -r '.[] | select(.type=="dir") | .path' "$TEMP_DIR/folder_contents.json" | \
-while read -r subdir; do
-    echo "Processing subdirectory: $subdir"
-    # Create the subdirectory in the destination
-    rel_path=${subdir#$PATH_TO_FOLDER/}
-    mkdir -p "$DESTINATION/$rel_path"
+# Function to download files from a specific path
+download_folder() {
+    local owner="$1"
+    local repo="$2"
+    local path="$3"
+    local branch="$4"
+    local destination="$5"
+    local original_path="$6"
+    local temp_dir="$7"
     
-    # Download contents of the subdirectory
-    "$0" "$OWNER" "$REPO" "$subdir" "$BRANCH" "$DESTINATION/$rel_path"
-done
+    # If this is the first call, setup original path
+    if [ -z "$original_path" ]; then
+        original_path="$path"
+    fi
+    
+    # If this is the first call, create temp directory
+    if [ -z "$temp_dir" ]; then
+        temp_dir=$(mktemp -d)
+        trap 'rm -rf "$temp_dir"' EXIT
+    fi
+    
+    echo "Downloading folder $path from $owner/$repo repository ($branch branch)..."
+    
+    # Use gh api to download the folder contents and metadata
+    mkdir -p "$temp_dir/contents"
+    gh api "repos/$owner/$repo/contents/$path?ref=$branch" > "$temp_dir/folder_contents_$(echo "$path" | tr '/' '_').json"
+    
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to get contents of the folder $path. Make sure the repository, branch, and folder exist."
+        return 1
+    fi
+    
+    # Calculate relative path for destination
+    local rel_dest="$destination"
+    if [ "$path" != "$original_path" ]; then
+        rel_path=${path#$original_path/}
+        rel_dest="$destination/$rel_path"
+    fi
+    
+    # Create destination directory if it doesn't exist
+    mkdir -p "$rel_dest"
+    
+    # Download each file in the folder
+    local folder_json="$temp_dir/folder_contents_$(echo "$path" | tr '/' '_').json"
+    
+    # Process files
+    jq -r '.[] | select(.type=="file") | [.download_url, .name] | @tsv' "$folder_json" | \
+    while read -r url name; do
+        echo "Downloading $name to $rel_dest..."
+        curl -s "$url" -o "$rel_dest/$name"
+    done
+    
+    # Process directories
+    local subdirs=($(jq -r '.[] | select(.type=="dir") | .path' "$folder_json"))
+    
+    for subdir in "${subdirs[@]}"; do
+        echo "Processing subdirectory: $subdir"
+        download_folder "$owner" "$repo" "$subdir" "$branch" "$destination" "$original_path" "$temp_dir"
+    done
+}
 
-echo "All files downloaded successfully to $DESTINATION"
+# Main script execution
+main() {
+    if [ "$#" -lt 3 ]; then
+        echo "Usage: $0 owner repo path branch [destination]"
+        echo "Example: $0 facebook react packages/react-dom main ./react-dom"
+        return 1
+    fi
+    
+    local OWNER="$1"
+    local REPO="$2"
+    local PATH_TO_FOLDER="$3"
+    local BRANCH="${4:-main}"
+    local DESTINATION="${5:-.}"
+    
+    echo "\$0: $0"
+    echo "Owner: $OWNER"
+    echo "Repository: $REPO"
+    echo "Path to folder: $PATH_TO_FOLDER"
+    echo "Branch: $BRANCH"
+    echo "Destination: $DESTINATION"
+    
+    # Check if gh is installed
+    if ! command -v gh &> /dev/null; then
+        echo "Error: GitHub CLI (gh) is not installed."
+        echo "Please install it using: brew install gh"
+        echo "Then authenticate using: gh auth login"
+        return 1
+    fi
+    
+    # Start the download process
+    download_folder "$OWNER" "$REPO" "$PATH_TO_FOLDER" "$BRANCH" "$DESTINATION"
+    
+    echo "All files downloaded successfully to $DESTINATION"
+    echo "Done! Files from '$PATH_TO_FOLDER' have been downloaded to '$DESTINATION'"
+}
 
-# Clean up
-rm -rf "$TEMP_DIR"
-
-echo "Done! Files from '$PATH_TO_FOLDER' have been downloaded to '$DESTINATION'"
-
+# Execute main function with all arguments
+main "$@"
