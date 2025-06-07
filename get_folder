@@ -1,0 +1,69 @@
+#!/bin/bash
+# filepath: /Users/rennochj/Code/deven/download_github_folder.sh
+
+# Script to download a specific folder from a GitHub repository using GitHub CLI
+# Usage: ./download_github_folder.sh owner repo path branch destination
+
+if [ "$#" -lt 3 ]; then
+    echo "Usage: $0 owner repo path branch [destination]"
+    echo "Example: $0 facebook react packages/react-dom main ./react-dom"
+    exit 1
+fi
+
+OWNER=$1
+REPO=$2
+PATH_TO_FOLDER=$3
+BRANCH=${4:-main}
+DESTINATION=${5:-.}
+
+# Check if gh is installed
+if ! command -v gh &> /dev/null; then
+    echo "Error: GitHub CLI (gh) is not installed."
+    echo "Please install it using: brew install gh"
+    echo "Then authenticate using: gh auth login"
+    exit 1
+fi
+
+# Create temp directory
+TEMP_DIR=$(mktemp -d)
+
+echo "Downloading folder $PATH_TO_FOLDER from $OWNER/$REPO repository ($BRANCH branch)..."
+
+# Use gh api to download the folder contents and metadata
+mkdir -p "$TEMP_DIR/contents"
+gh api repos/$OWNER/$REPO/contents/$PATH_TO_FOLDER?ref=$BRANCH > "$TEMP_DIR/folder_contents.json"
+
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to get contents of the folder. Make sure the repository, branch, and folder exist."
+    rm -rf "$TEMP_DIR"
+    exit 1
+fi
+
+# Create destination directory if it doesn't exist
+mkdir -p "$DESTINATION"
+
+# Download each file in the folder
+echo "Downloading files..."
+jq -r '.[] | select(.type=="file") | [.download_url, .name] | @tsv' "$TEMP_DIR/folder_contents.json" | \
+while read -r url name; do
+    echo "Downloading $name..."
+    curl -s "$url" -o "$DESTINATION/$name"
+done
+
+# Handle directories recursively (requires additional calls)
+jq -r '.[] | select(.type=="dir") | .path' "$TEMP_DIR/folder_contents.json" | \
+while read -r subdir; do
+    echo "Processing subdirectory: $subdir"
+    # Create the subdirectory in the destination
+    rel_path=${subdir#$PATH_TO_FOLDER/}
+    mkdir -p "$DESTINATION/$rel_path"
+    
+    # Download contents of the subdirectory
+    "$0" "$OWNER" "$REPO" "$subdir" "$BRANCH" "$DESTINATION/$rel_path"
+done
+
+# Clean up
+rm -rf "$TEMP_DIR"
+
+echo "Done! Files from '$PATH_TO_FOLDER' have been downloaded to '$DESTINATION'"
+
