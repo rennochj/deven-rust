@@ -16,6 +16,12 @@ PATH_TO_FOLDER=$3
 BRANCH=${4:-main}
 DESTINATION=${5:-.}
 
+echo "Owner: $OWNER"
+echo "Repository: $REPO"
+echo "Path to folder: $PATH_TO_FOLDER"
+echo "Branch: $BRANCH"
+echo "Destination: $DESTINATION"
+
 # Check if gh is installed
 if ! command -v gh &> /dev/null; then
     echo "Error: GitHub CLI (gh) is not installed."
