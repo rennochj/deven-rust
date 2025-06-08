@@ -1,0 +1,174 @@
+#!/bin/bash
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+create_repo() {
+ 
+    # Set default values
+    local REPO_NAME=""
+    local DESCRIPTION=""
+    local VISIBILITY="private"
+    local CLONE_DIR="${CLONE_DIR:-.}"
+
+    REPO_NAME="$1"
+    
+    if [ "$#" -ge 2 ]; then
+        DESCRIPTION="$2"
+    fi
+    
+    if [ "$#" -ge 3 ]; then
+        if [ "$3" = "public" ] || [ "$3" = "private" ]; then
+            VISIBILITY="$3"
+        else
+            echo "Warning: Visibility must be 'public' or 'private'. Defaulting to 'private'."
+        fi
+    fi
+    
+    if [ "$#" -ge 4 ]; then
+        GITIGNORE_TEMPLATE="$4"
+    fi
+
+    # Create base repository
+    echo "Creating repository $REPO_NAME..."
+    local CREATE_CMD="gh repo create $REPO_NAME --${VISIBILITY} --description \"$DESCRIPTION\""
+    
+    eval $CREATE_CMD
+
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to create repository."
+        exit 1
+    fi
+        
+    # Get the username
+    USERNAME=$(gh api user | jq -r '.login')
+    
+    # Clone the repository
+    echo "Cloning repository to $CLONE_DIR/$REPO_NAME..."
+    git clone "https://github.com/$USERNAME/$REPO_NAME.git" "$CLONE_DIR/$REPO_NAME"
+    
+    if [ $? -eq 0 ]; then
+        cd "$CLONE_DIR/$REPO_NAME"
+        
+        # Create README.md if it doesn't exist
+        if [ ! -f "README.md" ]; then
+            echo "# $REPO_NAME" > README.md
+            echo "" >> README.md
+            echo "$DESCRIPTION" >> README.md
+            
+            git add README.md
+            git commit -m "Add README.md"
+            git push origin main
+        fi
+        
+        echo "Repository has been cloned to $CLONE_DIR/$REPO_NAME"
+    else
+        echo "Error: Failed to clone repository."
+    fi
+
+    echo "Repository URL: https://github.com/$USERNAME/$REPO_NAME"
+    echo "Done!"
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+download_folder() {
+    local owner="$1"
+    local repo="$2"
+    local path="$3"
+    local branch="$4"
+    local destination="$5"
+    local original_path="$6"
+    local temp_dir="$7"
+
+    # If this is the first call, setup original path
+    if [ -z "$original_path" ]; then
+        original_path="$path"
+    fi
+    
+    # If this is the first call, create temp directory
+    if [ -z "$temp_dir" ]; then
+        temp_dir=$(mktemp -d)
+        trap 'rm -rf "$temp_dir"' EXIT
+    fi
+    
+    echo "Downloading folder $path from $owner/$repo repository ($branch branch)..."
+    
+    # Use gh api to download the folder contents and metadata
+    mkdir -p "$temp_dir/contents"
+    gh api "repos/$owner/$repo/contents/$path?ref=$branch" > "$temp_dir/folder_contents_$(echo "$path" | tr '/' '_').json"
+    
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to get contents of the folder $path. Make sure the repository, branch, and folder exist."
+        return 1
+    fi
+    
+    # Calculate relative path for destination
+    local rel_dest="$destination"
+    if [ "$path" != "$original_path" ]; then
+        rel_path=${path#$original_path/}
+        rel_dest="$destination/$rel_path"
+    fi
+    
+    # Create destination directory if it doesn't exist
+    mkdir -p "$rel_dest"
+    
+    # Download each file in the folder
+    local folder_json="$temp_dir/folder_contents_$(echo "$path" | tr '/' '_').json"
+    
+    # Process files
+    jq -r '.[] | select(.type=="file") | [.download_url, .name] | @tsv' "$folder_json" | \
+    while read -r url name; do
+        echo "Downloading $name to $rel_dest..."
+        curl -s "$url" -o "$rel_dest/$name"
+    done
+    
+    # Process directories
+    local subdirs=($(jq -r '.[] | select(.type=="dir") | .path' "$folder_json"))
+    
+    for subdir in "${subdirs[@]}"; do
+        echo "Processing subdirectory: $subdir"
+        download_folder "$owner" "$repo" "$subdir" "$branch" "$destination" "$original_path" "$temp_dir"
+    done
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+# Main script execution
+main() {
+    
+    local OWNER="rennochj"
+    local DEVEN_REPO="deven"
+    local DEVEN_BRANCH="main"
+    local TARGET_FOLDER="."
+
+    local REPO_NAME="$1"
+    local DEVEN_ENVIRONMENT="${2:-python}"
+    local REPO_DESCRIPTION="${3:-""}"
+    local REPO_VISIBILITY="${4:-private}" 
+    local CLONE_DIR="${5:-.}"
+    local DESTINATION="$CLONE_DIR/$REPO_NAME"
+    
+    # Check if gh is installed
+    if ! command -v gh &> /dev/null; then
+        echo "Error: GitHub CLI (gh) is not installed."
+        echo "Please install it using: brew install gh"
+        echo "Then authenticate using: gh auth login"
+        return 1
+    fi
+    
+    create_repo "$REPO_NAME" "$REPO_DESCRIPTION" "$REPO_VISIBILITY" "$REPO_VISIBILITY"
+
+    download_folder "$OWNER" "$DEVEN_REPO" "$DEVEN_ENVIRONMENT" "$DEVEN_BRANCH" "$TARGET_FOLDER"
+
+    cd "$TARGET_FOLDER" || exit 1
+
+    git add -A .
+    git commit -m "initial commit with files from $DEVEN_ENVIRONMENT"
+    git push origin main
+
+    echo "Done! Files from '$PATH_TO_FOLDER' have been downloaded to '$DESTINATION'"
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+main "$@"
