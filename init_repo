@@ -2,6 +2,26 @@
 
 # ---------------------------------------------------------------------------------------------------------------------
 
+usage() {
+  echo "Usage: $(basename "$0") [options]"
+  echo 
+  echo "Options:"
+  echo "  -n, --name NAME          Repository name (required)"
+  echo "  -e, --environment ENV    Development environment template (default: python)"
+  echo "  -d, --description DESC   Repository description (default: empty)"
+  echo "  -v, --visibility VIS     Repository visibility (public/private, default: private)"
+  echo "  -c, --clone-dir DIR      Directory to clone repo into (default: current directory)"
+  echo "  -o, --owner OWNER        Owner of the deven repository (default: rennochj)"
+  echo "  -r, --repo REPO          Deven repository name (default: deven)"
+  echo "  -b, --branch BRANCH      Branch to use (default: main)"
+  echo "  -h, --help               Show this help message"
+  echo
+  echo "Example:"
+  echo "  $(basename "$0") -n myproject -e python -d \"My awesome project\" -v public"
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+
 create_repo() {
  
     # Set default values
@@ -135,17 +155,105 @@ download_folder() {
 
 # Main script execution
 main() {
-    
-    local OWNER="rennochj"
+    # Default values
+    local DEVEN_OWNER="$(gh api user | jq -r '.login')"
     local DEVEN_REPO="deven"
     local DEVEN_BRANCH="main"
     local TARGET_FOLDER="."
-
-    local REPO_NAME="$1"
-    local DEVEN_ENVIRONMENT="${2:-python}"
-    local REPO_DESCRIPTION="${3:-""}"
-    local REPO_VISIBILITY="${4:-private}" 
-    local CLONE_DIR="${5:-.}"
+    local REPO_NAME=""
+    local DEVEN_ENVIRONMENT="python"
+    local REPO_DESCRIPTION=""
+    local REPO_VISIBILITY="private" 
+    local CLONE_DIR="."
+    
+    # Parse command line options
+    while getopts "n:e:d:v:c:o:r:b:h-:" opt; do
+        case ${opt} in
+            -)
+                case "${OPTARG}" in
+                    name)
+                        REPO_NAME="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
+                        ;;
+                    environment)
+                        DEVEN_ENVIRONMENT="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
+                        ;;
+                    description)
+                        REPO_DESCRIPTION="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
+                        ;;
+                    visibility)
+                        REPO_VISIBILITY="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
+                        ;;
+                    clone-dir)
+                        CLONE_DIR="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
+                        ;;
+                    owner)
+                        DEVEN_OWNER="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
+                        ;;
+                    repo)
+                        DEVEN_REPO="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
+                        ;;
+                    branch)
+                        DEVEN_BRANCH="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
+                        ;;
+                    help)
+                        usage
+                        exit 0
+                        ;;
+                    *)
+                        echo "Invalid option: --${OPTARG}" >&2
+                        usage
+                        exit 1
+                        ;;
+                esac
+                ;;
+            n)
+                REPO_NAME="${OPTARG}"
+                ;;
+            e)
+                DEVEN_ENVIRONMENT="${OPTARG}"
+                ;;
+            d)
+                REPO_DESCRIPTION="${OPTARG}"
+                ;;
+            v)
+                REPO_VISIBILITY="${OPTARG}"
+                ;;
+            c)
+                CLONE_DIR="${OPTARG}"
+                ;;
+            o)
+                DEVEN_OWNER="${OPTARG}"
+                ;;
+            r)
+                DEVEN_REPO="${OPTARG}"
+                ;;
+            b)
+                DEVEN_BRANCH="${OPTARG}"
+                ;;
+            h)
+                usage
+                exit 0
+                ;;
+            \?)
+                echo "Invalid option: -${OPTARG}" >&2
+                usage
+                exit 1
+                ;;
+            :)
+                echo "Option -${OPTARG} requires an argument." >&2
+                usage
+                exit 1
+                ;;
+        esac
+    done
+    
+    # Check if repository name was provided
+    if [ -z "$REPO_NAME" ]; then
+        echo "Error: Repository name is required."
+        usage
+        return 1
+    fi
+    
     local DESTINATION="$CLONE_DIR/$REPO_NAME"
     
     # Check if gh is installed
@@ -156,9 +264,15 @@ main() {
         return 1
     fi
     
+    # Validate repository visibility
+    if [ "$REPO_VISIBILITY" != "public" ] && [ "$REPO_VISIBILITY" != "private" ]; then
+        echo "Warning: Visibility must be 'public' or 'private'. Defaulting to 'private'."
+        REPO_VISIBILITY="private"
+    fi
+    
     create_repo "$REPO_NAME" "$REPO_DESCRIPTION" "$REPO_VISIBILITY" "$REPO_VISIBILITY"
 
-    download_folder "$OWNER" "$DEVEN_REPO" "$DEVEN_ENVIRONMENT" "$DEVEN_BRANCH" "$TARGET_FOLDER"
+    download_folder "$DEVEN_OWNER" "$DEVEN_REPO" "$DEVEN_ENVIRONMENT" "$DEVEN_BRANCH" "$TARGET_FOLDER"
 
     cd "$TARGET_FOLDER" || exit 1
 
@@ -166,9 +280,15 @@ main() {
     git commit -m "initial commit with files from $DEVEN_ENVIRONMENT"
     git push origin main
 
-    echo "Done! Files from '$PATH_TO_FOLDER' have been downloaded to '$DESTINATION'"
+    echo "Done! Repository '$REPO_NAME' has been created and initialized with files from '$DEVEN_ENVIRONMENT'"
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
+
+# Check if no arguments were provided
+if [ $# -eq 0 ]; then
+    usage
+    exit 1
+fi
 
 main "$@"
