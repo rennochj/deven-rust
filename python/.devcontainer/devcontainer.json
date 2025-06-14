@@ -3,12 +3,9 @@
     "dockerComposeFile": "docker-compose.yml",
     "service": "devcontainer",
     "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
-    "mounts": [
-    ],
+    "mounts": [],
     "containerEnv": {
-        "TZ": "America/Chicago",
-        "POETRY_VIRTUALENVS_IN_PROJECT": "true",
-        "PYTHONPATH": "${containerWorkspaceFolder}"
+        "TZ": "America/Chicago"
     },
     "customizations": {
         "vscode": {
@@ -45,12 +42,14 @@
                 "editor.codeActionsOnSave": {
                     "source.organizeImports": "always"
                 },
-                "isort.args": ["--profile", "black"],
+                "isort.args": [
+                    "--profile",
+                    "black"
+                ],
                 "mypy.enabled": true,
                 "mypy.dmypy": true
             }
         }
     },
     "remoteUser": "nonroot"
-    // "postCreateCommand": "pip install -e '.[dev]' && pre-commit uninstall && python3.13 -m pip install --upgrade pip"
 }
