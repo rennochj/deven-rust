@@ -5,8 +5,12 @@ USER root
 RUN <<EOT
 
     apk update && apk add posix-libc-utils && ldconfig
-    apk add zsh zsh-vcs curl wget git vim make
+    apk add zsh zsh-vcs curl wget git vim make jq docker
     apk add sudo-rs shadow && echo "nonroot ALL = (ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers && echo y | pwck -q || true
+
+    # Create docker group and add nonroot user to it
+    sudo addgroup docker
+    sudo addgroup nonroot docker
 
     curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o ~/awscliv2.zip
     unzip ~/awscliv2.zip
@@ -28,6 +32,27 @@ RUN <<EOT
 
 EOT
 
+# Create entrypoint script
+RUN <<EOT
+
+cat <<'EOF' > /home/nonroot/entrypoint.sh && chmod +x /home/nonroot/entrypoint.sh
+#!/bin/sh
+set -e
+
+# Setup docker socket if it exists
+if [ -S /var/run/docker.sock ]; then
+    sudo chown root:docker /var/run/docker.sock
+fi
+
+# Run command or default to sleep infinity
+if [ $# -gt 0 ]; then
+    exec "$@"
+else
+    exec sleep infinity
+fi
+
+EOT
+
 COPY .devcontainer/dotfiles/* /home/nonroot
 
-ENTRYPOINT ["/bin/sh","-c","sleep infinity"]
+ENTRYPOINT ["/home/nonroot/entrypoint.sh"]
