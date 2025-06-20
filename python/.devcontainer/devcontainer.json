@@ -1,5 +1,5 @@
 {
-    "name": "python-chainguard",
+    "name": "${localWorkspaceFolderBasename}",
     "dockerComposeFile": "docker-compose.yml",
     "service": "devcontainer",
     "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
@@ -33,22 +33,7 @@
                 "ms-vscode.test-adapter-converter",
                 "littlefoxteam.vscode-python-test-adapter",
                 "njpwerner.autodocstring"
-            ],
-            "settings": {
-                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
-                "python.testing.pytestEnabled": true,
-                "python.formatting.provider": "black",
-                "editor.formatOnSave": true,
-                "editor.codeActionsOnSave": {
-                    "source.organizeImports": "always"
-                },
-                "isort.args": [
-                    "--profile",
-                    "black"
-                ],
-                "mypy.enabled": true,
-                "mypy.dmypy": true
-            }
+            ]
         }
     },
     "remoteUser": "nonroot"
