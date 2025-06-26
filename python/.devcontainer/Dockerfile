@@ -5,7 +5,7 @@ USER root
 RUN <<EOT
 
     apk update && apk add posix-libc-utils && ldconfig
-    apk add zsh zsh-vcs curl wget git vim make jq docker
+    apk add zsh zsh-vcs curl wget git vim make jq docker nodejs npm coreutils
     apk add sudo-rs shadow && echo "nonroot ALL = (ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers && echo y | pwck -q || true
 
     # Create docker group and add nonroot user to it
@@ -15,6 +15,8 @@ RUN <<EOT
     curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o ~/awscliv2.zip
     unzip ~/awscliv2.zip
     sudo ./aws/install --bin-dir /usr/bin --install-dir /usr/aws-cli --update
+
+    npm install -g @anthropic-ai/claude-code
 
 EOT
 
