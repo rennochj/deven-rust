@@ -17,6 +17,7 @@ RUN <<EOT
     sudo ./aws/install --bin-dir /usr/bin --install-dir /usr/aws-cli --update
 
     npm install -g @anthropic-ai/claude-code
+    npm install -g @google/gemini-cli
 
 EOT
 
