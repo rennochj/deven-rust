@@ -6,5 +6,5 @@ services:
       dockerfile: .devcontainer/Dockerfile
     volumes:
       - ../..:/workspaces:cached
-      - ~/.gitconfig:/home/nonroot/.gitconfig:cached
+      - ~/.gitconfig:/home/node/.gitconfig:cached
       - /var/run/docker.sock:/var/run/docker.sock

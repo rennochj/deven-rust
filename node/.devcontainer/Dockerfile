@@ -6,11 +6,11 @@ RUN <<EOT
 
     apk update && apk add posix-libc-utils && ldconfig
     apk add zsh zsh-vcs curl wget git vim make jq docker coreutils
-    apk add sudo-rs shadow && echo "nonroot ALL = (ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers && echo y | pwck -q || true
+    apk add sudo-rs shadow && echo "node ALL = (ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers && echo y | pwck -q || true
 
-    # Create docker group and add nonroot user to it
+    # Create docker group and add node user to it
     sudo addgroup docker
-    sudo addgroup nonroot docker
+    sudo addgroup node docker
 
     curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o ~/awscliv2.zip
     unzip ~/awscliv2.zip
@@ -21,15 +21,13 @@ RUN <<EOT
 
 EOT
 
-USER nonroot
+USER node
 
 RUN <<EOT
 
-    pip install --upgrade pip
-
     # Install default shell
     command -v zsh | sudo tee -a /etc/shells
-    chsh nonroot --shell /usr/bin/zsh
+    chsh node --shell /usr/bin/zsh
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
 EOT
@@ -37,7 +35,7 @@ EOT
 # Create entrypoint script
 RUN <<EOT
 
-cat <<'EOF' > /home/nonroot/entrypoint.sh && chmod +x /home/nonroot/entrypoint.sh
+cat <<'EOF' > /home/node/entrypoint.sh && chmod +x /home/node/entrypoint.sh
 #!/bin/sh
 set -e
 
@@ -55,6 +53,6 @@ fi
 
 EOT
 
-COPY .devcontainer/dotfiles/* /home/nonroot
+COPY .devcontainer/dotfiles/* /home/node
 
-ENTRYPOINT ["/home/nonroot/entrypoint.sh"]
+ENTRYPOINT ["/home/node/entrypoint.sh"]
