@@ -5,7 +5,7 @@ USER root
 RUN <<EOT
 
     apk update && apk add posix-libc-utils && ldconfig
-    apk add zsh zsh-vcs curl wget git vim make jq docker nodejs npm coreutils
+    apk add zsh zsh-vcs curl wget git vim make jq docker coreutils nodejs npm
     apk add sudo-rs shadow && echo "nonroot ALL = (ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers && echo y | pwck -q || true
 
     # Create docker group and add nonroot user to it
@@ -16,14 +16,32 @@ RUN <<EOT
     unzip ~/awscliv2.zip
     sudo ./aws/install --bin-dir /usr/bin --install-dir /usr/aws-cli --update
 
-    npm install -g @anthropic-ai/claude-code
-    npm install -g @google/gemini-cli
-
 EOT
 
 USER nonroot
 
 RUN <<EOT
+
+    cd $HOME
+    
+    # Create a directory for global packages
+
+    mkdir ~/.npm-global
+
+    # Configure npm to use it
+    npm config set prefix '~/.npm-global'
+
+    # Add to your PATH
+    echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> ~/.profile
+    source ~/.profile
+    
+    # Verify configuration
+    npm config get prefix
+    # Should show: /home/username/.npm-global
+
+    npm install -g @anthropic-ai/claude-code
+    npm install -g @google/gemini-cli
+    npm install -g @jschuller/perplexity-mcp
 
     pip install --upgrade pip
 
@@ -58,6 +76,6 @@ fi
 
 EOT
 
-COPY .devcontainer/dotfiles/* /home/nonroot
+COPY --chown=nonroot:nonroot .devcontainer/dotfiles/* /home/nonroot
 
 ENTRYPOINT ["/home/nonroot/entrypoint.sh"]
