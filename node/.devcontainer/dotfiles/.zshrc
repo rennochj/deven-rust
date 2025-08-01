@@ -105,3 +105,4 @@ source $ZSH/oh-my-zsh.sh
 
 export PATH=~/.local/bin:$PATH
 
+source $HOME/.profile 
