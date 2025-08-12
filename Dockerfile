@@ -1,16 +1,16 @@
-FROM cgr.dev/chainguard/node:latest-dev
+FROM cgr.dev/chainguard/rust:latest-dev
 
 USER root
 
 RUN <<EOT
 
     apk update && apk add posix-libc-utils && ldconfig
-    apk add zsh zsh-vcs curl wget git vim make jq docker coreutils
-    apk add sudo-rs shadow && echo "node ALL = (ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers && echo y | pwck -q || true
+    apk add zsh zsh-vcs curl wget git vim make jq docker nodejs npm coreutils
+    apk add sudo-rs shadow && echo "nonroot ALL = (ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers && echo y | pwck -q || true
 
-    # Create docker group and add node user to it
+    # Create docker group and add nonroot user to it
     sudo addgroup docker
-    sudo addgroup node docker
+    sudo addgroup nonroot docker
 
     curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o ~/awscliv2.zip
     unzip ~/awscliv2.zip
@@ -18,16 +18,15 @@ RUN <<EOT
 
     npm install -g @anthropic-ai/claude-code
     npm install -g @google/gemini-cli
-
+    
 EOT
 
-USER node
+USER nonroot
 
 RUN <<EOT
 
-    # Install default shell
     command -v zsh | sudo tee -a /etc/shells
-    chsh node --shell /usr/bin/zsh
+    chsh nonroot --shell /usr/bin/zsh
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
 EOT
@@ -35,7 +34,7 @@ EOT
 # Create entrypoint script
 RUN <<EOT
 
-cat <<'EOF' > /home/node/entrypoint.sh && chmod +x /home/node/entrypoint.sh
+cat <<'EOF' > /home/nonroot/entrypoint.sh && chmod +x /home/nonroot/entrypoint.sh
 #!/bin/sh
 set -e
 
@@ -53,6 +52,6 @@ fi
 
 EOT
 
-COPY .devcontainer/dotfiles/* /home/node
+COPY .devcontainer/dotfiles/* /home/nonroot
 
-ENTRYPOINT ["/home/node/entrypoint.sh"]
+ENTRYPOINT ["/home/nonroot/entrypoint.sh"]

@@ -6,13 +6,12 @@
 	"mounts": [ 
     ],  
     "containerEnv": {
-        "TZ": "America/Chicago",
-        "POETRY_VIRTUALENVS_IN_PROJECT": "true"
+        "TZ": "America/Chicago"
     },
 	"customizations": {
     	"vscode": {
 			"extensions": [
-				"ms-python.python",
+				"rust-lang.rust-analyzer",
                 "ms-azuretools.vscode-docker",
                 "ms-vscode.makefile-tools",
                 "shd101wyy.markdown-preview-enhanced",
@@ -25,10 +24,10 @@
                 "mechatroner.rainbow-csv",
                 "amazonwebservices.aws-toolkit-vscode",
                 "mark-tucker.aws-cli-configure",
-                "boto3typed.boto3-ide"
+                "tamasfe.even-better-toml"
             ]
     	}
 	},
-	// "postCreateCommand": "pip install -r requirements.txt",
+	// "postCreateCommand": "cargo --version",
 	"remoteUser": "nonroot"
 }
